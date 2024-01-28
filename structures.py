@@ -22,8 +22,18 @@ class Passenger:
         self.leave_system = leave_system
         self.pickup_time = None
 
+    def accept(self,p,t,p_ref,t_ref):
+        # prob = max(0,1 - (p/p_ref + t/t_ref)/4)
+        # if np.random.uniform(0,1) <= prob:
+        #     self.p = p
+        #     return 1
+        # else:
+        #     return 0
+        self.p = p
+        return 1
+
 class Vehicle:
-    def __init__(self, nid, location, available_time, current_location, status, served_passenger, rebalancing_travel_distance,
+    def __init__(self, nid, location, available_time, current_location, status, served_passenger, trip_earning, rebalancing_travel_distance,
                  pickup_travel_distance, occupied_travel_distance, rebalancing_trips):
         """status: 0(available), 1(being rebalanced), 2(way to pick up passengers), 3(occupied) """
         self.id = nid
@@ -32,6 +42,7 @@ class Vehicle:
         self.current_location = current_location
         self.status = status
         self.served_passenger = served_passenger
+        self.trip_earning = trip_earning
         self.rebalancing_travel_distance = rebalancing_travel_distance
         self.pickup_travel_distance = pickup_travel_distance
         self.occupied_travel_distance = occupied_travel_distance
@@ -47,8 +58,8 @@ class Road:
         self.end = end
         self.cap = cap
         self.t0 = t
-        self.t = t
         self.flow = background
+        self.t = self.travel_time()
 
     def travel_time(self):
         """ BPR """
@@ -60,11 +71,12 @@ class Road:
 class Network:
     """ A complete network of New York under different congestion level"""
 
-    def __init__(self, congestion_level=1, date=27, time_start=7, time_end=9, time_interval_length=300, rebalancing_time_length=1800, matching_window=30, capacity=1800):
+    def __init__(self, congestion_level=0, date=27, time_start=7, time_end=9, time_interval_length=300, rebalancing_time_length=1800, matching_window=30, capacity=1800, homo=False):
 
+        self.homo = homo
         self.congestion_level = congestion_level
         self.capacity = capacity
-        self.free_speed = 20
+        self.free_speed = 25
 
         self.zone_index_id = pd.read_csv("data/NYC/zone_index_id.csv", header=None).values
         self.zone_index_id_dict = dict()
@@ -80,7 +92,9 @@ class Network:
         self.matching_window = matching_window # Seconds
         data1 = pd.read_csv('data/NYC/road_network/distance.csv', header=None) / 1609.34
         self.road_distance_matrix = data1.values
-        self.t = 3600 * self.road_distance_matrix / self.free_speed
+        self.base_time = 3600 * self.road_distance_matrix / self.free_speed
+        self.base_price = 2.55 + 0.35*self.base_time/60 + 1.75*self.road_distance_matrix
+        self.base_price[self.base_price < 7] = 7
         data2 = pd.read_csv('data/NYC/road_network/predecessor.csv', header=None)
         self.predecessor = data2.values
         
@@ -169,10 +183,12 @@ class Network:
 
                 if not np.isnan(pre):
                     pre = int(pre)
-                    self.roads[(pre,j)] = Road(pre, j, self.capacity, self.t[pre,j], self.congestion_level*900)
+                    self.roads[(pre,j)] = Road(pre, j, self.capacity, self.base_time[pre,j], self.congestion_level)
 
-        # Path between OD. Generated on the fly to save time.
+        # Path and price between OD. Generated on the fly to save time.
         self.paths = defaultdict(lambda: None)
+        self.prices = defaultdict(lambda: None)
+        self.earnings = defaultdict(lambda: None)
 
     def get_path(self, ori, des):
 
@@ -225,4 +241,44 @@ class Network:
             segment_time = self.roads[(start_node,end_node)].travel_time()
             travel_time += segment_time
 
-        return travel_time       
+        return travel_time   
+    
+    def travel_time_homo(self, ori, des):
+
+        t = self.base_time[ori,des] * (1 + 0.15*((self.congestion_level)/self.capacity)**4)
+        return t
+
+
+    def price(self, ori, des):
+        """ Calculate estimated price on edge (ori,des)"""
+
+        if ori == des:
+            return 0
+        
+        if self.prices[(ori,des)] is None:
+            if self.homo:
+                t = self.travel_time_homo(ori, des)
+            else:
+                t = self.travel_time(ori, des)
+            d = self.road_distance_matrix[ori, des]
+            p = 0.75*t/60 + 1.75*d
+            self.prices[(ori, des)] = p
+
+        return self.prices[(ori,des)]
+    
+    def earning(self, ori, des):
+        """ Calculate estimated driver earning on edge (ori,des)"""
+
+        if ori == des:
+            return 0
+        
+        if self.earnings[(ori,des)] is None:
+            t = self.travel_time(ori, des)
+            d = self.road_distance_matrix[ori, des]
+            p = 0.287*t/(0.58*60) + 0.631*d/0.58
+            self.earnings[(ori, des)] = p
+
+        return self.earnings[(ori,des)]        
+
+    def reset_price(self):
+        self.prices = defaultdict(lambda: None)

@@ -13,34 +13,41 @@ parser = argparse.ArgumentParser(description="Congestion-Sim")
 parser.add_argument(
     "--congestion_level",
     type=float,
-    default=1.0,
-    help="congestion level (default: 1.0)"
+    default=0,
+    help="congestion level (default: 0)"
 )
 parser.add_argument(
-    "fleet_size",
+    "--fleet_size",
     type=int,
-    default=2000,
+    default=1000,
     help="number of vehicles (default 2000)"
 )
 parser.add_argument(
-    "log_path",
+    "--log_path",
     type=str,
-    default="Output.txt",
+    default="log.out",
     help="Log file path"
 )
+parser.add_argument(
+    "--output_path",
+    type=str,
+    default="output.pickle",
+    help="Output file path"
+)
 
-logging.basicConfig(filename="output.out",
-                    filemode='a',
+args = parser.parse_args()
+logging.basicConfig(filename=args.log_path,
+                    filemode='w',
                     format='%(asctime)s %(name)s %(levelname)s %(message)s',
                     datefmt='%H:%M:%S',
                     level=logging.DEBUG)
 
 np.random.seed(42)
 
-fleet_size = 2000
-congestion_level = 1
+fleet_size = args.fleet_size
+congestion_level = args.congestion_level
 net = Network(congestion_level)
-pickle.dump(net, open("Network.pkl",'wb'))
+# pickle.dump(net, open("Network.pkl",'wb'))
 
 # Initialize demand and vehicle objects
 logging.info("Intializing passengers and vehicles ...")
@@ -219,10 +226,20 @@ while True:
 
         for ((veh_id, pax_id), pickup_dist) in matching_list:
 
-            # Update matched vehicle and passenger information
+            # Passenger choice
             pax = demand_id_dict[pax_id]
-            veh = vehicle_id_dict[veh_id]
+            p = net.price(pax.origin,pax.destination)
+            t = net.travel_time(pax.origin,pax.destination)
+            accept = pax.accept(p,t,net.base_price[pax.origin,pax.destination],net.base_time[pax.origin,pax.destination])
+            if not accept:
+                pax.wait_time += net.matching_window
+                if pax.wait_time >= net.maximum_waiting_time:
+                    pax.leave_system = True
 
+                continue               
+
+            # Update matched vehicle and passenger information if the trip is accepted
+            veh = vehicle_id_dict[veh_id]
             pax.assign_time = matching_simulation_time + timedelta(seconds=net.matching_window) # vehicle is matched with the passenger in next time step
 
             veh.passenger_id = pax_id
@@ -233,10 +250,12 @@ while True:
             veh.occupied_travel_distance.append(net.road_distance_matrix[pax.origin, pax.destination])
 
         matching_simulation_time += timedelta(seconds=net.matching_window)
+        net.reset_price()
 
     simulation_time += timedelta(seconds=net.time_interval_length)
 
 logging.info("Simulation Ends")
+
 output = dict()
 # Output simulation results
 vehicle_served_passenger_list = []
@@ -261,6 +280,7 @@ pax_wait_time_list = []
 pax_travel_time_list = []
 pax_leave_list = []
 pax_request_time_list = []
+pax_trip_price_list = []
 pax_leave_number = 0
 total_pax_number = 0
 for pax in demand_list:
@@ -270,6 +290,7 @@ for pax in demand_list:
         pax_wait_time_list.append(pax.wait_time)
     if pax.travel_time > 0 and not pax.leave_system:
         pax_travel_time_list.append(pax.travel_time)
+        pax_trip_price_list.append(pax.p)
     if pax.leave_system:
         pax_leave_list.append(1)
         pax_leave_number += 1
@@ -279,5 +300,11 @@ output["pax_travel_time"] = pax_travel_time_list
 output["pax_leaving"] = pax_leave_list
 output["pax_leaving_rate"] = [pax_leave_number / total_pax_number]
 output["pax_request_time"] = pax_request_time_list
+output["pax_trip_price"] = pax_trip_price_list
+
+# output["profit"] = sum(pax_trip_price_list) - 0.8*(np.sum(vehicle_pickup_dist_list)+np.sum(vehicle_rebalancing_dist_list)+np.sum(vehicle_occupied_dist_list))
 
 print(f"Unserved rate: {pax_leave_number / total_pax_number}")
+
+with open(args.output_path, 'wb') as handle:
+    pickle.dump(output, handle)

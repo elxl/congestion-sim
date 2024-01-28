@@ -56,12 +56,36 @@ def initialize_vehicle(fleet_size, network):
         road_node_list = network.zone_to_road_node_dict[i]
         vehicle_loc_list = random.choices(road_node_list, k=zone_vehicle_number) # sample number of vehicles locations in zone
         for loc in vehicle_loc_list:
-            veh = Vehicle(vehicle_ind, loc, init_avail_time, loc, 0, [], [], [], [], [])
+            veh = Vehicle(vehicle_ind, loc, init_avail_time, loc, 0, [], [], [], [], [], [])
             vehicle_id_dict[vehicle_ind] = veh
             vehicle_list.append(veh)
             vehicle_ind += 1
 
     return vehicle_list, vehicle_id_dict
+
+def get_current_location(net, matching_time, veh, demand_id_dict):
+    """
+    demand_id_dict: id:passenger
+    """
+    pax = demand_id_dict[veh.served_passenger[-1]]
+
+    if matching_time - timedelta(seconds=net.matching_window) < pax.assign_time <= matching_time:
+        return veh.current_location
+    else:
+        vehicle_travel_time = datetime.timestamp(matching_time) - datetime.timestamp(pax.request_time) - pax.wait_time
+        veh_start_loc = pax.origin
+        veh_end_loc = pax.destination
+        trip_path = net.get_path(veh_start_loc,veh_end_loc)
+
+    travel_time = 0
+    for i in range(len(trip_path) - 1):
+        start_node = trip_path[i]
+        end_node = trip_path[i+1]
+        segment_time = net.roads[(start_node,end_node)].t
+        travel_time += segment_time
+        if travel_time >= vehicle_travel_time:
+            return end_node
+
 
 def matching(vehicles, demands, network):
     """
@@ -81,7 +105,10 @@ def matching(vehicles, demands, network):
             dem_id = dem.id
             dem_loc = dem.origin
             pick_distance = network.road_distance_matrix[veh_loc, dem_loc]
-            pickup_time = network.travel_time(veh_loc, dem_loc)
+            if network.homo:
+                pickup_time = network.travel_time_homo(veh_loc, dem_loc)
+            else:
+                pickup_time = network.travel_time(veh_loc, dem_loc)
             if pickup_time <= network.maximum_waiting_time:
                 pickup_dist[(veh_id, dem_id)] = pick_distance
 
