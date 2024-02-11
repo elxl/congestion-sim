@@ -37,7 +37,7 @@ parser.add_argument(
 parser.add_argument(
     "--output_path",
     type=str,
-    default="output/output",
+    default="output/",
     help="Output file path"
 )
 
@@ -46,11 +46,11 @@ args = parser.parse_args()
 levels = [0,300,600,900,1200,1500,1800,2100,2400,2700,3000,3300,3600]
 congestion_level = args.congestion_level
 maximum_wait = args.maxt
-logging.basicConfig(filename=args.log_path + '.out',
-                    filemode='w',
-                    format='%(asctime)s %(name)s %(levelname)s %(message)s',
-                    datefmt='%H:%M:%S',
-                    level=logging.DEBUG)
+# logging.basicConfig(filename=args.log_path + '.out',
+#                     filemode='w',
+#                     format='%(asctime)s %(name)s %(levelname)s %(message)s',
+#                     datefmt='%H:%M:%S',
+#                     level=logging.DEBUG)
 
 np.random.seed(42)
 
@@ -94,7 +94,8 @@ while True:
             V_init[vehicle_zone] += 1
             zone_vacant_veh_dict[vehicle_zone].append(veh.id)
 
-    logging.info(f"{simulation_time}: Rebalancing")
+    # logging.info(f"{simulation_time}: Rebalancing")
+    print(f"{simulation_time}: Rebalancing")
 
     K_sub = end_time_index - time_index
     a_sub = net.a[:,:,time_index:end_time_index] # if traveling time is bigger than rebalancing threshold
@@ -146,7 +147,8 @@ while True:
     matching_simulation_time = simulation_time
     while True:
         
-        logging.info(f"{matching_simulation_time}:Matching")
+        # logging.info(f"{matching_simulation_time}:Matching")
+        print(f"{matching_simulation_time}:Matching")
         if matching_simulation_time >= simulation_time + timedelta(seconds=net.time_interval_length):
             break
 
@@ -216,7 +218,8 @@ while True:
 
     simulation_time += timedelta(seconds=net.time_interval_length)
 
-logging.info("Simulation Ends")
+# logging.info("Simulation Ends")
+print("Simulation Ends")
 
 output = dict()
 # Output simulation results
@@ -269,8 +272,8 @@ output["pax_trip_price"] = pax_trip_price_list
 
 output["profit"] = sum(pax_trip_price_list) - sum(vehicle_earning_list)
 
-logging.info(f"Congestion level: {congestion_level} | Profit: {output['profit']} | Unserved rate: {pax_leave_number / total_pax_number}")
+# logging.info(f"Congestion level: {congestion_level} | Profit: {output['profit']} | Unserved rate: {pax_leave_number / total_pax_number}")
 print(f"Congestion level: {congestion_level} | Profit: {output['profit']} | Unserved rate: {pax_leave_number / total_pax_number}")
 
-with open(f'output/level{congestion_level}.pickle', 'wb') as handle:
+with open(args.output_path + f'level_{congestion_level}_veh_{fleet_size}_wait_{maximum_wait}.pickle', 'wb') as handle:
     pickle.dump(output, handle)
