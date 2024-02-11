@@ -71,7 +71,7 @@ class Road:
 class Network:
     """ A complete network of New York under different congestion level"""
 
-    def __init__(self, congestion_level=0, date=27, time_start=7, time_end=9, time_interval_length=300, rebalancing_time_length=1800, matching_window=30, capacity=1800, homo=False):
+    def __init__(self, congestion_level=0, date=27, time_start=7, time_end=9, time_interval_length=300, rebalancing_time_length=1800, matching_window=30, capacity=1800, homo=False, maximum_wait=300):
 
         self.homo = homo
         self.congestion_level = congestion_level
@@ -147,7 +147,7 @@ class Network:
         self.β = 1
         self.γ = 1e2
         self.average_speed = 20
-        self.maximum_waiting_time = 300    # seconds
+        self.maximum_waiting_time = maximum_wait    # seconds
         self.maximum_rebalancing_time = self.time_interval_length
 
         d = np.load("data/NYC/distance_matrix.npy") # Zone centroid distances in miles
