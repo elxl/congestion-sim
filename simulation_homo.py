@@ -60,16 +60,24 @@ net = Network(congestion_level,homo=True,maximum_wait=maximum_wait)
 # pickle.dump(net, open("Network.pkl",'wb'))
 
 # Initialize demand and vehicle objects
-logging.info("Intializing passengers and vehicles ...")
+# logging.info("Intializing passengers and vehicles ...")
+print("Intializing passengers and vehicles ...")
 demand_list, demand_id_dict = initialize_demand(net)
 vehicle_list, vehicle_id_dict = initialize_vehicle(fleet_size, net)
 
 simulation_start_time = datetime(2019,6,net.date,net.start_time[0],0,0)
 simulation_end_time = datetime(2019,6,net.date,net.end_time[0],0,0)
 simulation_time = simulation_start_time
-logging.info("Intializing finish. Simulation starts.")
+
+# Log metrics
+veh_occupy = []
+
+# logging.info("Intializing finish. Simulation starts.")
+print("Intializing finish. Simulation starts.")
 
 while True:
+    veh_occupy_batch = 0
+
     if simulation_time >= simulation_end_time:
         break
 
@@ -191,6 +199,7 @@ while True:
             veh = vehicle_id_dict[veh_id]
 
             pickup_time = net.travel_time_homo(veh.current_location,pax.origin)
+            pax.pickup_time = pickup_time
             pax.wait_time = pickup_time + net.matching_window + datetime.timestamp(matching_simulation_time) - datetime.timestamp(pax.request_time)
             pax.travel_time = net.travel_time_homo(pax.origin,pax.destination)
             pax.assign_time = matching_simulation_time + timedelta(seconds=net.matching_window) # vehicle is matched with the passenger in next time step
@@ -210,6 +219,7 @@ while True:
     matching_time = matching_simulation_time
     for veh in vehicle_list:
         if matching_time <= veh.available_time:
+            veh_occupy_batch += 1
             veh.status = 3
             veh.current_location = get_current_location(net, matching_time, veh, demand_id_dict)
         else:
@@ -217,12 +227,15 @@ while True:
             veh.current_location = veh.location
 
     simulation_time += timedelta(seconds=net.time_interval_length)
+    veh_occupy.append(veh_occupy_batch)
 
 # logging.info("Simulation Ends")
 print("Simulation Ends")
 
 output = dict()
 # Output simulation results
+output['veh_occupy'] = veh_occupy
+
 vehicle_served_passenger_list = []
 vehicle_earning_list = []
 vehicle_occupied_dist_list = []
@@ -245,6 +258,7 @@ output["vehicle_rebalancing_dist"] = vehicle_rebalancing_dist_list
 output["vehicle_rebalancing_trip"] = vehicle_rebalancing_trip_list
 
 pax_wait_time_list = []
+pax_pickup_time_list = []
 pax_travel_time_list = []
 pax_leave_list = []
 pax_request_time_list = []
@@ -257,6 +271,7 @@ for pax in demand_list:
     if pax.wait_time > 0 and not pax.leave_system:
         pax_wait_time_list.append(pax.wait_time)
     if pax.travel_time > 0 and not pax.leave_system:
+        pax_pickup_time_list.append(pax.pickup_time)
         pax_travel_time_list.append(pax.travel_time)
         pax_trip_price_list.append(pax.p)
     if pax.leave_system:
