@@ -23,14 +23,12 @@ class Passenger:
         self.pickup_time = None
 
     def accept(self,p,t,p_ref,t_ref):
-        # prob = max(0,1 - (p/p_ref + t/t_ref)/4)
-        # if np.random.uniform(0,1) <= prob:
-        #     self.p = p
-        #     return 1
-        # else:
-        #     return 0
-        self.p = p
-        return 1
+        prob = max(0,1 - (p/p_ref + t/t_ref - 2)/2)
+        if np.random.uniform(0,1) <= prob:
+            self.p = p
+            return 1
+        else:
+            return 0
 
 class Vehicle:
     def __init__(self, nid, location, available_time, current_location, status, served_passenger, trip_earning, rebalancing_travel_distance,
@@ -93,8 +91,9 @@ class Network:
         data1 = pd.read_csv('data/NYC/road_network/distance.csv', header=None) / 1609.34
         self.road_distance_matrix = data1.values
         self.base_time = 3600 * self.road_distance_matrix / self.free_speed
-        self.base_price = 2.55 + 0.35*self.base_time/60 + 1.75*self.road_distance_matrix
-        self.base_price[self.base_price < 7] = 7
+        # self.base_price = 2.55 + 0.35*self.base_time/60 + 1.75*self.road_distance_matrix
+        # self.base_price[self.base_price < 7] = 7
+        self.base_price = 0.75*self.base_time/60 + 1.75*self.road_distance_matrix
         data2 = pd.read_csv('data/NYC/road_network/predecessor.csv', header=None)
         self.predecessor = data2.values
         
