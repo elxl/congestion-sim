@@ -23,7 +23,9 @@ class Passenger:
         self.pickup_time = None
 
     def accept(self,p,t,p_ref,t_ref):
-        prob = max(0,1 - (p/p_ref + t/t_ref - 2)/2)
+        # prob = max(0,1 - (p/p_ref + t/t_ref - 2)/2)
+        x = p/p_ref + t/t_ref - 2
+        prob = min(1,1/(1+x*np.exp(x)))
         if np.random.uniform(0,1) <= prob:
             self.p = p
             return 1
@@ -38,6 +40,7 @@ class Vehicle:
         self.location = location
         self.available_time = available_time
         self.current_location = current_location
+        self.last_location = current_location
         self.status = status
         self.served_passenger = served_passenger
         self.trip_earning = trip_earning
@@ -50,19 +53,21 @@ class Vehicle:
 class Road:
     """ Road segment between two intersections"""
 
-    def __init__(self, start, end, cap, t, background):
+    def __init__(self, start, end, cap, t, background=0):
 
         self.start = start
         self.end = end
         self.cap = cap
         self.t0 = t
         self.flow = background
-        self.t = self.travel_time()
+        self.updated = False      
 
     def travel_time(self):
         """ BPR """
 
-        self.t = self.t0 * (1 + 0.15*((self.flow)/self.cap)**4)
+        if not self.updated:
+            self.t = self.t0 * (1 + 0.15*((self.flow)/self.cap)**4)
+            self.updated = True
 
         return self.t
     
