@@ -363,5 +363,5 @@ output["profit"] = sum(pax_trip_price_list) - sum(vehicle_earning_list)
 
 print(f"Fleet: {fleet_size} | Profit: {output['profit']} | Unserved rate: {pax_leave_number / total_pax_number}")
 
-with open(args.output_path + f'veh_{fleet_size}.pickle', 'wb') as handle:
+with open(args.output_path + f'veh_{fleet_size}_bg_{congestion_level}.pickle', 'wb') as handle:
     pickle.dump(output, handle)
