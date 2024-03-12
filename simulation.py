@@ -233,7 +233,7 @@ while True:
                     segment_time = net.roads[(start_node,end_node)].travel_time()
                     travel_time += segment_time
                     veh.last_location = start_node
-                    if travel_time > net.time_interval_length:
+                    if travel_time > net.matching_window:
                         veh.current_location = end_node 
                         # Add vehicle to the new segment
                         road_update[(start_node, end_node)] += 1
