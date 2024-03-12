@@ -36,10 +36,10 @@ parser.add_argument(
 )
 
 args = parser.parse_args()
-logging.basicConfig(filename=args.log_path+".log",
-                    format='%(asctime)s %(name)s %(levelname)s %(message)s',
-                    datefmt='%H:%M:%S',
-                    level=logging.DEBUG)
+# logging.basicConfig(filename=args.log_path+".log",
+#                     format='%(asctime)s %(name)s %(levelname)s %(message)s',
+#                     datefmt='%H:%M:%S',
+#                     level=logging.DEBUG)
 
 np.random.seed(42)
 
@@ -49,14 +49,16 @@ net = Network(congestion_level)
 # pickle.dump(net, open("Network.pkl",'wb'))
 
 # Initialize demand and vehicle objects
-logging.info("Intializing passengers and vehicles ...")
+# logging.info("Intializing passengers and vehicles ...")
+print("Intializing passengers and vehicles ...")
 demand_list, demand_id_dict = initialize_demand(net)
 vehicle_list, vehicle_id_dict = initialize_vehicle(fleet_size, net)
 
 simulation_start_time = datetime(2019,6,net.date,net.start_time[0],0,0)
 simulation_end_time = datetime(2019,6,net.date,net.end_time[0],0,0)
 simulation_time = simulation_start_time
-logging.info("Intializing finish. Simulation starts.")
+# logging.info("Intializing finish. Simulation starts.")
+print("Intializing finish. Simulation starts.")
 
 while True:
     if simulation_time >= simulation_end_time:
@@ -83,7 +85,8 @@ while True:
             V_init[vehicle_zone] += 1
             zone_vacant_veh_dict[vehicle_zone].append(veh.id)
 
-    logging.info(f"{simulation_time}: Rebalancing")
+    # logging.info(f"{simulation_time}: Rebalancing")
+    print(f"{simulation_time}: Rebalancing")
 
     K_sub = end_time_index - time_index
     a_sub = net.a[:,:,time_index:end_time_index] # if traveling time is bigger than rebalancing threshold
@@ -163,7 +166,8 @@ while True:
     matching_simulation_time = simulation_time
     while True:
         
-        logging.info(f"{matching_simulation_time}:Matching")
+        # logging.info(f"{matching_simulation_time}:Matching")
+        print(f"{matching_simulation_time}:Matching")
         if matching_simulation_time >= simulation_time + timedelta(seconds=net.time_interval_length):
             break
 
@@ -308,7 +312,8 @@ while True:
 
     simulation_time += timedelta(seconds=net.time_interval_length)
 
-logging.info("Simulation Ends")
+# logging.info("Simulation Ends")
+print("Simulation Ends")
 
 output = dict()
 # Output simulation results
