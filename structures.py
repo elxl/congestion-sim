@@ -187,7 +187,7 @@ class Network:
 
                 if not np.isnan(pre):
                     pre = int(pre)
-                    self.roads[(pre,j)] = Road(pre, j, self.capacity, self.base_time[pre,j], self.congestion_level)
+                    self.roads[(pre,j)] = Road(pre, j, self.capacity*self.matching_window/3600, self.base_time[pre,j], self.congestion_level)
 
         # Path and price between OD. Generated on the fly to save time.
         self.paths = defaultdict(lambda: None)
