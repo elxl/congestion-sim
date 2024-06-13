@@ -15,6 +15,7 @@ def initialize_demand(network):
     return: list of passengers, dictionary of passengers
     """
     demand_list = []
+    demand_array = np.zeros((network.n,network.end_bin-network.start_bin+1)) # Demand at each time rebalancing interval
     demand_id_dict = dict()
     demand_ind = 0
 
@@ -25,6 +26,8 @@ def initialize_demand(network):
         if (request_time >= network.start_timestamp) & (request_time < network.end_timestamp):
             pickup_zone = network.zone_index_id_dict[int(network.demand_data.loc[i, "pu_zone"])]
             dropoff_zone = network.zone_index_id_dict[int(network.demand_data.loc[i, "do_zone"])]
+            timestep = int((request_time - network.start_timestamp).total_seconds()//network.time_interval_length)
+            demand_array[pickup_zone, timestep] += 1
             while True:
                 pickup_node = random.sample(network.zone_to_road_node_dict[pickup_zone], 1)[0]
                 dropoff_node = random.sample(network.zone_to_road_node_dict[dropoff_zone], 1)[0]
@@ -36,7 +39,7 @@ def initialize_demand(network):
             demand_list.append(pax)
             demand_ind += 1
 
-    return demand_list, demand_id_dict
+    return demand_list, demand_array, demand_id_dict
 
 
 def initialize_vehicle(fleet_size, network):

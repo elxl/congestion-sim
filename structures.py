@@ -35,7 +35,7 @@ class Passenger:
 class Vehicle:
     def __init__(self, nid, location, available_time, current_location, status, served_passenger, trip_earning, rebalancing_travel_distance,
                  pickup_travel_distance, occupied_travel_distance, rebalancing_trips):
-        """status: 0(available), 1(being rebalanced), 2(way to pick up passengers), 3(occupied) """
+        """status: 0(available), 1(being rebalanced for optimization), 2(way to pick up passengers), 3(occupied), 4(being rebalanced for congestion)"""
         self.id = nid
         self.location = location
         self.available_time = available_time
