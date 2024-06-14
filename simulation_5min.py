@@ -25,8 +25,14 @@ parser.add_argument(
 parser.add_argument(
     "--add_congestion",
     type=int,
-    default=0,
+    default=1,
     help="Whether to dispatch available vehicles to increase network congestion"
+)
+parser.add_argument(
+    "--reb_proportion",
+    type=float,
+    default=1.0,
+    help="Propotion of available vehicles to rebalance"
 )
 parser.add_argument(
     "--log_path",
@@ -74,73 +80,76 @@ while True:
     number_of_intervals = int(net.rebalancing_time_length / net.time_interval_length) # number of intervals in one optimization step
     end_time_index = time_index + min(net.d[:, :, time_index:].shape[2], number_of_intervals) # end time index for current optimization step
 
-    P_matrix = net.P[:,:,time_index:end_time_index] # Probility of vehicle staying occupied
-    Q_matrix = net.Q[:,:,time_index:end_time_index] # Probability of occupied vehicle becomes vacant
+    # P_matrix = net.P[:,:,time_index:end_time_index] # Probility of vehicle staying occupied
+    # Q_matrix = net.Q[:,:,time_index:end_time_index] # Probability of occupied vehicle becomes vacant
 
-    # Find initial occupied & vacant vehicle distributions
-    V_init = np.zeros(net.n) # vacant vehicles
-    O_init = np.zeros(net.n) # occupied vehicles
+    # # Find initial occupied & vacant vehicle distributions
+    # V_init = np.zeros(net.n) # vacant vehicles
+    # O_init = np.zeros(net.n) # occupied vehicles
 
-    zone_vacant_veh_dict = defaultdict(list)
-    for veh in vehicle_list:
-        veh_loc = veh.current_location
-        vehicle_zone = net.road_node_to_zone_dict[veh_loc]
-        if (veh.status != 0) and (veh.status != 4):
-            O_init[vehicle_zone] += 1 # zone index from 0 to 62
-        elif (veh.status == 0) or (veh.status == 4):
-            V_init[vehicle_zone] += 1
-            zone_vacant_veh_dict[vehicle_zone].append(veh.id)
+    # zone_vacant_veh_dict = defaultdict(list)
+    # for veh in vehicle_list:
+    #     veh_loc = veh.current_location
+    #     vehicle_zone = net.road_node_to_zone_dict[veh_loc]
+    #     if (veh.status != 0) and (veh.status != 4):
+    #         O_init[vehicle_zone] += 1 # zone index from 0 to 62
+    #     elif (veh.status == 0) or (veh.status == 4):
+    #         V_init[vehicle_zone] += 1
+    #         zone_vacant_veh_dict[vehicle_zone].append(veh.id)
 
     # logging.info(f"{simulation_time}: Rebalancing")
     print(f"{simulation_time}: Rebalancing")
 
-    K_sub = end_time_index - time_index
-    a_sub = net.a[:,:,time_index:end_time_index] # if traveling time is bigger than rebalancing threshold
-    b_sub = net.b[:,:,time_index:end_time_index] # if traveling time is bigger than maximum waiting time
-    d_sub = net.d[:,:,time_index:end_time_index] # zone centroids distance 
+    # K_sub = end_time_index - time_index
+    # a_sub = net.a[:,:,time_index:end_time_index] # if traveling time is bigger than rebalancing threshold
+    # b_sub = net.b[:,:,time_index:end_time_index] # if traveling time is bigger than maximum waiting time
+    # d_sub = net.d[:,:,time_index:end_time_index] # zone centroids distance 
 
-    r = net.true_demand[:, time_index:end_time_index]
-    rebalancing_decision = optimization(r, V_init, O_init, P_matrix, Q_matrix, net.n, K_sub, a_sub, b_sub, d_sub, net.β, net.γ)
+    # r = net.true_demand[:, time_index:end_time_index]
+    # rebalancing_decision = optimization(r, V_init, O_init, P_matrix, Q_matrix, net.n, K_sub, a_sub, b_sub, d_sub, net.β, net.γ)
 
-    rebalancing_decision = (np.floor(rebalancing_decision[:,:,0])).astype(int)
+    # rebalancing_decision = (np.floor(rebalancing_decision[:,:,0])).astype(int)
 
-    # Rebalancing vacant vehicles
-    # road_update = defaultdict(int) # Dictionary to keep track of the number of vehicles to be updated on roads
-    for i in range(net.n):
-        for j in range(net.n):
-            rebalancing_veh_number = rebalancing_decision[i,j]
-            if rebalancing_veh_number <= 0:
-                continue
-            rebalancing_veh_list = random.sample(zone_vacant_veh_dict[i], rebalancing_veh_number)
-            for veh_id in rebalancing_veh_list:
-                veh = vehicle_id_dict[veh_id]
-                random_number = 0
-                reb = True
-                while True:
-                    dest_node = random.choice(net.zone_to_road_node_dict[j])
-                    rebalancing_dist = net.road_distance_matrix[veh.current_location, dest_node]
-                    rebalancing_time = net.travel_time(veh.current_location, dest_node)
-                    if rebalancing_time <= net.maximum_rebalancing_time:
-                        break
-                    random_number += 1
-                    # Sample 10 times to get points in the two zones between which the traveling time is less than the maximum
-                    if random_number >= 10:
-                        reb = False
-                        break
-                if reb:
-                    # Update information of rebalanced vehicles
-                    veh.status = 1
-                    veh.rebalancing_travel_distance.append(rebalancing_dist)
-                    veh.rebalancing_trips.append(1)
-                    veh.location = dest_node
-                    veh.available_time = simulation_time + timedelta(seconds=(int(math.floor(rebalancing_time))))
+    # # Rebalancing vacant vehicles
+    # # road_update = defaultdict(int) # Dictionary to keep track of the number of vehicles to be updated on roads
+    # for i in range(net.n):
+    #     for j in range(net.n):
+    #         rebalancing_veh_number = rebalancing_decision[i,j]
+    #         if rebalancing_veh_number <= 0:
+    #             continue
+    #         rebalancing_veh_list = random.sample(zone_vacant_veh_dict[i], rebalancing_veh_number)
+    #         for veh_id in rebalancing_veh_list:
+    #             veh = vehicle_id_dict[veh_id]
+    #             random_number = 0
+    #             reb = True
+    #             while True:
+    #                 dest_node = random.choice(net.zone_to_road_node_dict[j])
+    #                 rebalancing_dist = net.road_distance_matrix[veh.current_location, dest_node]
+    #                 rebalancing_time = net.travel_time(veh.current_location, dest_node)
+    #                 if rebalancing_time <= net.maximum_rebalancing_time:
+    #                     break
+    #                 random_number += 1
+    #                 # Sample 10 times to get points in the two zones between which the traveling time is less than the maximum
+    #                 if random_number >= 10:
+    #                     reb = False
+    #                     break
+    #             if reb:
+    #                 # Update information of rebalanced vehicles
+    #                 veh.status = 1
+    #                 veh.rebalancing_travel_distance.append(rebalancing_dist)
+    #                 veh.rebalancing_trips.append(1)
+    #                 veh.location = dest_node
+    #                 veh.available_time = simulation_time + timedelta(seconds=(int(math.floor(rebalancing_time))))
 
     # Rebalance available vehicles to high demand area
     if args.add_congestion:
-        top_regions = np.argsort(demand_array[:,time_index])[::-1][:5]
+        # top_regions = np.argsort(demand_array[:,time_index])[::-1][:5]
+        region = np.argmax(demand_array[:,time_index])
         for veh in vehicle_list:
-            if (veh.status == 0) or (veh.status == 4):
-                region = random.choice(top_regions)
+            if (veh.status == 0):
+                # region = random.choice(top_regions)
+                if np.random.uniform(0,1) > args.reb_proportion:
+                    continue
                 dest_node = random.choice(net.zone_to_road_node_dict[region])
                 veh.location = dest_node
                 veh.available_time = simulation_time
@@ -223,8 +232,10 @@ while True:
         if matching_simulation_time < veh.available_time:
             if veh.status == 1:
                 trip_path = net.get_path(veh.current_location,veh.location)
-                # Deduct vehicle from the current segment
-                road_update[(veh.last_location,veh.current_location)] -= 1
+                # Deduct vehicle from the past segments
+                for i in range(len(veh.path)-1):
+                    road_update[(veh.path[i],veh.path[i+1])] -= 1
+                veh.path = []
                 arrive = True
                 travel_time = 0
                 for i in range(len(trip_path) - 1):
@@ -234,21 +245,26 @@ while True:
                     travel_time += segment_time
                     veh.last_location = start_node
                     veh.current_location = end_node
+                    veh.path.append(start_node)
                     if travel_time >= timedelta(seconds=net.time_interval_length):
+                        veh.path.append(end_node)
                         if i != len(trip_path) - 2:
                             arrive = False
                         break
                 if arrive:
                     veh.status = 0
-                # Add vehicle to the new segment 
-                road_update[(start_node, end_node)] += 1          
+                # Add vehicle to the new segments
+                for i in range(len(veh.path)-1): 
+                    road_update[(veh.path[i], veh.path[i+1])] += 1          
             elif veh.status == 2:
                 pax = demand_id_dict[veh.passenger_id]
                 vehicle_travel_time = datetime.timestamp(matching_simulation_time) - datetime.timestamp(pax.assign_time)
                 # Pick up passengers
                 dest_node = pax.origin
                 trip_path = net.get_path(veh.current_location,dest_node)
-                road_update[(veh.last_location,veh.current_location)] -= 1
+                for i in range(len(veh.path)-1):
+                    road_update[(veh.path[i],veh.path[i+1])] -= 1
+                veh.path = []
                 travel_time = 0
                 arrive = True
                 for i in range(len(trip_path) - 1):
@@ -258,9 +274,12 @@ while True:
                     travel_time += segment_time
                     veh.last_location = start_node
                     veh.current_location = end_node
+                    veh.path.append(start_node)
                     if travel_time > vehicle_travel_time:
+                        veh.path.append(end_node)
                         if i != len(trip_path) - 2:
-                            road_update[(start_node, end_node)] += 1
+                            for i in range(len(veh.path)-1): 
+                                road_update[(veh.path[i], veh.path[i+1])] += 1 
                             arrive = False
                         break
                 if arrive:
@@ -276,11 +295,14 @@ while True:
                         travel_time += segment_time
                         veh.last_location = start_node
                         veh.current_location = end_node
+                        veh.path.append(start_node)
                         if travel_time >= vehicle_travel_time:
+                            veh.path.append(end_node)
                             if i != len(trip_path) - 2:
                                 arrive = False
                             break
-                    road_update[(start_node, end_node)] += 1
+                    for i in range(len(veh.path)-1):
+                        road_update[(veh.path[i], veh.path[i+1])] += 1
                     
                     pax.travel_time += (travel_time - pickup_time)
                     if arrive:
@@ -292,7 +314,9 @@ while True:
             elif veh.status == 3:
                 # Deliver passengers
                 trip_path = net.get_path(veh.current_location,veh.location)
-                road_update[(veh.last_location,veh.current_location)] -= 1
+                for i in range(len(veh.path)-1): 
+                    road_update[(veh.path[i], veh.path[i+1])] -= 1
+                veh.path = [] 
                 travel_time = 0
                 arrive = True
                 for i in range(len(trip_path) - 1):
@@ -302,21 +326,26 @@ while True:
                     travel_time += segment_time
                     veh.last_location = start_node
                     veh.current_location = end_node
+                    veh.path.append(start_node)
                     if travel_time >= net.time_interval_length:
+                        veh.path.append(end_node)
                         if i != len(trip_path) - 2:
                             arrive = False
                         break
                 if arrive:
                     veh.status = 0
-                road_update[(start_node, end_node)] += 1
+                for i in range(len(veh.path)-1):
+                    road_update[(veh.path[i], veh.path[i+1])] += 1
 
                 pax = demand_id_dict[veh.passenger_id]
                 pax.travel_time += travel_time
         else:
             if veh.status == 4:
                 trip_path = net.get_path(veh.current_location,veh.location)
-                # Deduct vehicle from the current segment
-                road_update[(veh.last_location,veh.current_location)] -= 1
+                # Deduct vehicle from the past segments
+                for i in range(len(veh.path)-1):
+                    road_update[(veh.path[i],veh.path[i+1])] -= 1
+                veh.path = []
                 travel_time = 0
                 arrive = True
                 for i in range(len(trip_path) - 1):
@@ -326,25 +355,40 @@ while True:
                     travel_time += segment_time
                     veh.last_location = start_node
                     veh.current_location = end_node 
+                    veh.path.append(start_node)
                     if travel_time >= net.time_interval_length:
+                        veh.path.append(end_node)
                         if i != len(trip_path) - 2:
                             arrive = False
                         break 
-                road_update[(start_node, end_node)] += 1
+                for i in range(len(veh.path)-1):
+                    road_update[(veh.path[i], veh.path[i+1])] += 1
                 if arrive:
                     veh.status = 0
                 veh.available_time = matching_simulation_time
+            elif veh.status == 0:
+                for i in range(len(veh.path)-1): 
+                    road_update[(veh.path[i], veh.path[i+1])] -= 1 
+                veh.path = []                
             elif (veh.status == 1) or (veh.status == 3):
-                road_update[(veh.last_location,veh.current_location)] -= 1
+                for i in range(len(veh.path)-1): 
+                    road_update[(veh.path[i], veh.path[i+1])] -= 1 
                 trip_path = net.get_path(veh.current_location,veh.location)
-                road_update[(trip_path[-2],trip_path[-1])] += 1
+                veh.path = trip_path
+                for i in range(len(veh.path)-1): 
+                    road_update[(veh.path[i], veh.path[i+1])] += 1 
                 veh.last_location = trip_path[-2]
                 veh.current_location = veh.location    
                 veh.status = 0   
             elif veh.status == 2:
+                for i in range(len(veh.path)-1): 
+                    road_update[(veh.path[i], veh.path[i+1])] -= 1 
                 pax = demand_id_dict[veh.passenger_id]
-                road_update[(veh.last_location,veh.current_location)] -= 1
-                trip_path = net.get_path(pax.origin,veh.location)
+                trip_path1 = net.get_path(veh.current_location,pax.origin)
+                trip_path2 = net.get_path(pax.origin,veh.location)
+                veh.path = trip_path1 + trip_path2[1:]
+                for i in range(len(veh.path)-1): 
+                    road_update[(veh.path[i], veh.path[i+1])] += 1 
                 veh.last_location = trip_path[-2]
                 veh.current_location = veh.location    
                 veh.status = 0     

@@ -49,6 +49,7 @@ class Vehicle:
         self.occupied_travel_distance = occupied_travel_distance
         self.rebalancing_trips = rebalancing_trips
         self.passenger_id = None
+        self.path = []
 
 class Road:
     """ Road segment between two intersections"""
@@ -187,7 +188,7 @@ class Network:
 
                 if not np.isnan(pre):
                     pre = int(pre)
-                    self.roads[(pre,j)] = Road(pre, j, self.capacity*self.matching_window/3600, self.base_time[pre,j], self.congestion_level*self.matching_window/3600)
+                    self.roads[(pre,j)] = Road(pre, j, self.capacity*self.time_interval_length/3600, self.base_time[pre,j], self.congestion_level*self.matching_window/3600)
 
         # Path and price between OD. Generated on the fly to save time.
         self.paths = defaultdict(lambda: None)
