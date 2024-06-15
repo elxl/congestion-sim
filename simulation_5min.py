@@ -389,7 +389,7 @@ while True:
                 veh.path = trip_path1 + trip_path2[1:]
                 for i in range(len(veh.path)-1): 
                     road_update[(veh.path[i], veh.path[i+1])] += 1 
-                veh.last_location = trip_path[-2]
+                veh.last_location = veh.path[-2]
                 veh.current_location = veh.location    
                 veh.status = 0     
     # Update road flow
