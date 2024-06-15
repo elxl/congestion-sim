@@ -386,7 +386,7 @@ while True:
                 pax = demand_id_dict[veh.passenger_id]
                 trip_path1 = net.get_path(veh.current_location,pax.origin)
                 trip_path2 = net.get_path(pax.origin,veh.location)
-                veh.path = trip_path1 + trip_path2[1:]
+                veh.path = trip_path1 + trip_path2
                 for i in range(len(veh.path)-1): 
                     road_update[(veh.path[i], veh.path[i+1])] += 1 
                 veh.last_location = veh.path[-2]
