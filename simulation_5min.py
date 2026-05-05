@@ -23,6 +23,78 @@ parser.add_argument(
     help="number of vehicles (default 2000)"
 )
 parser.add_argument(
+    "--date",
+    type=int,
+    default=27,
+    help="simulation date (default: 27)"
+)
+parser.add_argument(
+    "--time_start",
+    type=int,
+    default=7,
+    help="start hour (default: 7)"
+)
+parser.add_argument(
+    "--time_end",
+    type=int,
+    default=9,
+    help="end hour (default: 9)"
+)
+parser.add_argument(
+    "--time_interval_length",
+    type=int,
+    default=300,
+    help="time interval length in seconds (default: 300)"
+)
+parser.add_argument(
+    "--rebalancing_time_length",
+    type=int,
+    default=1800,
+    help="rebalancing interval in seconds (default: 1800)"
+)
+parser.add_argument(
+    "--matching_window",
+    type=int,
+    default=30,
+    help="matching window in seconds (default: 30)"
+)
+parser.add_argument(
+    "--maximum_waiting_time",
+    type=int,
+    default=300,
+    help="maximum waiting time in seconds (default: 300)"
+)
+parser.add_argument(
+    "--fare_time_mult",
+    type=float,
+    default=1.0,
+    help="fare time-rate multiplier (default: 1.0)"
+)
+parser.add_argument(
+    "--fare_dist_mult",
+    type=float,
+    default=1.0,
+    help="fare distance-rate multiplier (default: 1.0)"
+)
+parser.add_argument(
+    "--pay_time_mult",
+    type=float,
+    default=1.0,
+    help="pay time-rate multiplier (default: 1.0)"
+)
+parser.add_argument(
+    "--pay_dist_mult",
+    type=float,
+    default=1.0,
+    help="pay distance-rate multiplier (default: 1.0)"
+)
+parser.add_argument(
+    "--hetero_background",
+    type=int,
+    default=0,
+    help="use per-zone background congestion (default: 0)"
+)
+parser.add_argument(
     "--add_congestion",
     type=int,
     default=1,
@@ -57,7 +129,21 @@ np.random.seed(42)
 
 fleet_size = args.fleet_size
 congestion_level = args.congestion_level
-net = Network(congestion_level)
+net = Network(
+    congestion_level,
+    date=args.date,
+    time_start=args.time_start,
+    time_end=args.time_end,
+    time_interval_length=args.time_interval_length,
+    rebalancing_time_length=args.rebalancing_time_length,
+    matching_window=args.matching_window,
+    maximum_wait=args.maximum_waiting_time,
+    fare_time_mult=args.fare_time_mult,
+    fare_dist_mult=args.fare_dist_mult,
+    pay_time_mult=args.pay_time_mult,
+    pay_dist_mult=args.pay_dist_mult,
+    hetero_background=args.hetero_background,
+)
 # pickle.dump(net, open("Network.pkl",'wb'))
 
 # Initialize demand and vehicle objects
@@ -80,69 +166,69 @@ while True:
     number_of_intervals = int(net.rebalancing_time_length / net.time_interval_length) # number of intervals in one optimization step
     end_time_index = time_index + min(net.d[:, :, time_index:].shape[2], number_of_intervals) # end time index for current optimization step
 
-    # P_matrix = net.P[:,:,time_index:end_time_index] # Probility of vehicle staying occupied
-    # Q_matrix = net.Q[:,:,time_index:end_time_index] # Probability of occupied vehicle becomes vacant
-
-    # # Find initial occupied & vacant vehicle distributions
-    # V_init = np.zeros(net.n) # vacant vehicles
-    # O_init = np.zeros(net.n) # occupied vehicles
-
-    # zone_vacant_veh_dict = defaultdict(list)
-    # for veh in vehicle_list:
-    #     veh_loc = veh.current_location
-    #     vehicle_zone = net.road_node_to_zone_dict[veh_loc]
-    #     if (veh.status != 0) and (veh.status != 4):
-    #         O_init[vehicle_zone] += 1 # zone index from 0 to 62
-    #     elif (veh.status == 0) or (veh.status == 4):
-    #         V_init[vehicle_zone] += 1
-    #         zone_vacant_veh_dict[vehicle_zone].append(veh.id)
-
     # logging.info(f"{simulation_time}: Rebalancing")
     print(f"{simulation_time}: Rebalancing")
 
-    # K_sub = end_time_index - time_index
-    # a_sub = net.a[:,:,time_index:end_time_index] # if traveling time is bigger than rebalancing threshold
-    # b_sub = net.b[:,:,time_index:end_time_index] # if traveling time is bigger than maximum waiting time
-    # d_sub = net.d[:,:,time_index:end_time_index] # zone centroids distance 
+    if not args.add_congestion:
+        P_matrix = net.P[:,:,time_index:end_time_index] # Probility of vehicle staying occupied
+        Q_matrix = net.Q[:,:,time_index:end_time_index] # Probability of occupied vehicle becomes vacant
 
-    # r = net.true_demand[:, time_index:end_time_index]
-    # rebalancing_decision = optimization(r, V_init, O_init, P_matrix, Q_matrix, net.n, K_sub, a_sub, b_sub, d_sub, net.β, net.γ)
+        # Find initial occupied & vacant vehicle distributions
+        V_init = np.zeros(net.n) # vacant vehicles
+        O_init = np.zeros(net.n) # occupied vehicles
 
-    # rebalancing_decision = (np.floor(rebalancing_decision[:,:,0])).astype(int)
+        zone_vacant_veh_dict = defaultdict(list)
+        for veh in vehicle_list:
+            veh_loc = veh.current_location
+            vehicle_zone = net.road_node_to_zone_dict[veh_loc]
+            if (veh.status != 0) and (veh.status != 4):
+                O_init[vehicle_zone] += 1 # zone index from 0 to 62
+            elif (veh.status == 0) or (veh.status == 4):
+                V_init[vehicle_zone] += 1
+                zone_vacant_veh_dict[vehicle_zone].append(veh.id)
 
-    # # Rebalancing vacant vehicles
-    # # road_update = defaultdict(int) # Dictionary to keep track of the number of vehicles to be updated on roads
-    # for i in range(net.n):
-    #     for j in range(net.n):
-    #         rebalancing_veh_number = rebalancing_decision[i,j]
-    #         if rebalancing_veh_number <= 0:
-    #             continue
-    #         rebalancing_veh_list = random.sample(zone_vacant_veh_dict[i], rebalancing_veh_number)
-    #         for veh_id in rebalancing_veh_list:
-    #             veh = vehicle_id_dict[veh_id]
-    #             random_number = 0
-    #             reb = True
-    #             while True:
-    #                 dest_node = random.choice(net.zone_to_road_node_dict[j])
-    #                 rebalancing_dist = net.road_distance_matrix[veh.current_location, dest_node]
-    #                 rebalancing_time = net.travel_time(veh.current_location, dest_node)
-    #                 if rebalancing_time <= net.maximum_rebalancing_time:
-    #                     break
-    #                 random_number += 1
-    #                 # Sample 10 times to get points in the two zones between which the traveling time is less than the maximum
-    #                 if random_number >= 10:
-    #                     reb = False
-    #                     break
-    #             if reb:
-    #                 # Update information of rebalanced vehicles
-    #                 veh.status = 1
-    #                 veh.rebalancing_travel_distance.append(rebalancing_dist)
-    #                 veh.rebalancing_trips.append(1)
-    #                 veh.location = dest_node
-    #                 veh.available_time = simulation_time + timedelta(seconds=(int(math.floor(rebalancing_time))))
+        K_sub = end_time_index - time_index
+        a_sub = net.a[:,:,time_index:end_time_index] # if traveling time is bigger than rebalancing threshold
+        b_sub = net.b[:,:,time_index:end_time_index] # if traveling time is bigger than maximum waiting time
+        d_sub = net.d[:,:,time_index:end_time_index] # zone centroids distance 
 
-    # Rebalance available vehicles to high demand area
-    if args.add_congestion:
+        r = net.true_demand[:, time_index:end_time_index]
+        rebalancing_decision = optimization(r, V_init, O_init, P_matrix, Q_matrix, net.n, K_sub, a_sub, b_sub, d_sub, net.β, net.γ)
+
+        rebalancing_decision = (np.floor(rebalancing_decision[:,:,0])).astype(int)
+
+        # Rebalancing vacant vehicles
+        # road_update = defaultdict(int) # Dictionary to keep track of the number of vehicles to be updated on roads
+        for i in range(net.n):
+            for j in range(net.n):
+                rebalancing_veh_number = rebalancing_decision[i,j]
+                if rebalancing_veh_number <= 0:
+                    continue
+                rebalancing_veh_list = random.sample(zone_vacant_veh_dict[i], rebalancing_veh_number)
+                for veh_id in rebalancing_veh_list:
+                    veh = vehicle_id_dict[veh_id]
+                    random_number = 0
+                    reb = True
+                    while True:
+                        dest_node = random.choice(net.zone_to_road_node_dict[j])
+                        rebalancing_dist = net.road_distance_matrix[veh.current_location, dest_node]
+                        rebalancing_time = net.travel_time(veh.current_location, dest_node)
+                        if rebalancing_time <= net.maximum_rebalancing_time:
+                            break
+                        random_number += 1
+                        # Sample 10 times to get points in the two zones between which the traveling time is less than the maximum
+                        if random_number >= 10:
+                            reb = False
+                            break
+                    if reb:
+                        # Update information of rebalanced vehicles
+                        veh.status = 1
+                        veh.rebalancing_travel_distance.append(rebalancing_dist)
+                        veh.rebalancing_trips.append(1)
+                        veh.location = dest_node
+                        veh.available_time = simulation_time + timedelta(seconds=(int(math.floor(rebalancing_time))))
+    else:
+        # Rebalance available vehicles to high demand area
         # top_regions = np.argsort(demand_array[:,time_index])[::-1][:5]
         region = np.argmax(demand_array[:,time_index])
         for veh in vehicle_list:
@@ -472,5 +558,5 @@ output["profit"] = sum(pax_trip_price_list) - sum(vehicle_earning_list)
 
 print(f"Fleet: {fleet_size} | Profit: {output['profit']} | Unserved rate: {pax_leave_number / total_pax_number}")
 
-with open(args.output_path + f'veh_{fleet_size}_bg_{congestion_level}_increased.pickle', 'wb') as handle:
+with open(args.output_path + f'veh_{fleet_size}_bg_{congestion_level}_reb_{args.reb_proportion}_price_{args.fare_time_mult}_{args.fare_dist_mult}_pay_{args.pay_time_mult}_{args.pay_dist_mult}.pickle', 'wb') as handle:
     pickle.dump(output, handle)

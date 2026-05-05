@@ -75,12 +75,17 @@ class Road:
 class Network:
     """ A complete network of New York under different congestion level"""
 
-    def __init__(self, congestion_level=0, date=27, time_start=7, time_end=9, time_interval_length=300, rebalancing_time_length=1800, matching_window=30, capacity=1800, homo=False, maximum_wait=300):
+    def __init__(self, congestion_level=0, date=27, time_start=7, time_end=9, time_interval_length=300, rebalancing_time_length=1800, matching_window=30, capacity=1800, homo=False, maximum_wait=300, fare_time_mult=1.0, fare_dist_mult=1.0, pay_time_mult=1.0, pay_dist_mult=1.0, hetero_background=0):
 
         self.homo = homo
         self.congestion_level = congestion_level
         self.capacity = capacity
         self.free_speed = 25
+        self.fare_time_rate = 0.75 * fare_time_mult
+        self.fare_dist_rate = 1.75 * fare_dist_mult
+        self.pay_time_rate = (0.287 / (0.58 * 60)) * pay_time_mult
+        self.pay_dist_rate = (0.631 / 0.58) * pay_dist_mult
+        self.hetero_background = bool(hetero_background)
 
         self.zone_index_id = pd.read_csv("data/NYC/zone_index_id.csv", header=None).values
         self.zone_index_id_dict = dict()
@@ -99,17 +104,17 @@ class Network:
         self.base_time = 3600 * self.road_distance_matrix / self.free_speed
         # self.base_price = 2.55 + 0.35*self.base_time/60 + 1.75*self.road_distance_matrix
         # self.base_price[self.base_price < 7] = 7
-        self.base_price = 0.75*self.base_time/60 + 1.75*self.road_distance_matrix
+        self.base_price = self.fare_time_rate * self.base_time / 60 + self.fare_dist_rate * self.road_distance_matrix
         data2 = pd.read_csv('data/NYC/road_network/predecessor.csv', header=None)
         self.predecessor = data2.values
         
         self.start_bin = self.start_time[0] * 12
         self.end_bin = self.end_time[0] * 12 - 1
-        self.start_timestamp = datetime(2019,6,date,self.start_time[0],0,0)
-        self.end_timestamp = datetime(2019,6,date,self.end_time[0],0,0)
+        self.start_timestamp = datetime(2025,6,date,self.start_time[0],0,0)
+        self.end_timestamp = datetime(2025,6,date,self.end_time[0],0,0)
         
         # Demand
-        data = pd.read_csv("data/NYC/processed_data/normalized_data.csv")
+        data = pd.read_csv("data/NYC/processed_data/normalized_data_2025_06.csv")
         data = data[(data['bin'] >= self.start_bin) & (data['bin'] <= self.end_bin)]
         prev_data = data[(data['month'] !=6) | (data['day'] < date)]
         June_date_data = data[(data['month'] ==6) & (data['day'] == date)]
@@ -136,6 +141,18 @@ class Network:
             zone_id = self.road_node_to_zone[i, 1]
             self.road_node_to_zone_dict[road_node_id] = zone_id
             self.zone_to_road_node_dict[zone_id].append(road_node_id)
+
+        zone_demand = June_date_data.groupby("zone")["demand"].sum()
+        zone_demand_values = np.zeros(self.n)
+        for zone_id, demand in zone_demand.items():
+            zone_index = int(zone_id)
+            if 0 <= zone_index < self.n:
+                zone_demand_values[zone_index] = demand
+        mean_demand = zone_demand_values.mean()
+        if mean_demand > 0:
+            self.zone_demand_weight = zone_demand_values / mean_demand
+        else:
+            self.zone_demand_weight = np.ones(self.n)
             
         self.zone_centriod_node = pd.read_csv("data/NYC/centroid_ind_node.csv", header=None).values
         self.centroid_to_node_dict = dict()
@@ -145,8 +162,11 @@ class Network:
         # Demand information used for solving optimization problems
         self.true_demand = June_date_data.loc[:, ['zone','bin','demand']].pivot(index='zone',columns='bin',values='demand').values
             
-        # Demand information used for simulation
-        self.demand_data = pd.read_csv("data/NYC/demand/fhv_records_06272019.csv")
+        # Demand information used for simulation (multi-day)
+        self.demand_data = pd.read_csv("data/NYC/demand/fhvhv_records_2025_06.csv")
+        self.demand_data["pu_time"] = pd.to_datetime(self.demand_data["pu_time"])
+        self.demand_data["pu_month"] = self.demand_data["pu_time"].dt.month
+        self.demand_data["pu_day"] = self.demand_data["pu_time"].dt.day
         
         # Problem Parameters
         self.β = 1
@@ -188,7 +208,14 @@ class Network:
 
                 if not np.isnan(pre):
                     pre = int(pre)
-                    self.roads[(pre,j)] = Road(pre, j, self.capacity*self.time_interval_length/3600, self.base_time[pre,j], self.congestion_level*self.matching_window/3600)
+                    background_flow = self.congestion_level * self.matching_window / 3600
+                    if self.hetero_background:
+                        zone_id = self.road_node_to_zone_dict.get(j)
+                        if zone_id is not None:
+                            zone_index = int(zone_id)
+                            if 0 <= zone_index < len(self.zone_demand_weight):
+                                background_flow *= self.zone_demand_weight[zone_index]
+                    self.roads[(pre,j)] = Road(pre, j, self.capacity*self.time_interval_length/3600, self.base_time[pre,j], background_flow)
 
         # Path and price between OD. Generated on the fly to save time.
         self.paths = defaultdict(lambda: None)
@@ -266,7 +293,7 @@ class Network:
             else:
                 t = self.travel_time(ori, des)
             d = self.road_distance_matrix[ori, des]
-            p = 0.75*t/60 + 1.75*d
+            p = self.fare_time_rate * t / 60 + self.fare_dist_rate * d
             self.prices[(ori, des)] = p
 
         return self.prices[(ori,des)]
@@ -280,7 +307,7 @@ class Network:
         if self.earnings[(ori,des)] is None:
             t = self.travel_time(ori, des)
             d = self.road_distance_matrix[ori, des]
-            p = 0.287*t/(0.58*60) + 0.631*d/0.58
+            p = self.pay_time_rate * t + self.pay_dist_rate * d
             self.earnings[(ori, des)] = p
 
         return self.earnings[(ori,des)]        

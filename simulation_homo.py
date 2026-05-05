@@ -62,7 +62,7 @@ net = Network(congestion_level,homo=True,maximum_wait=maximum_wait)
 # Initialize demand and vehicle objects
 # logging.info("Intializing passengers and vehicles ...")
 print("Intializing passengers and vehicles ...")
-demand_list, demand_id_dict = initialize_demand(net)
+demand_list, _, demand_id_dict = initialize_demand(net)
 vehicle_list, vehicle_id_dict = initialize_vehicle(fleet_size, net)
 
 simulation_start_time = datetime(2019,6,net.date,net.start_time[0],0,0)
@@ -290,5 +290,5 @@ output["profit"] = sum(pax_trip_price_list) - sum(vehicle_earning_list)
 # logging.info(f"Congestion level: {congestion_level} | Profit: {output['profit']} | Unserved rate: {pax_leave_number / total_pax_number}")
 print(f"Congestion level: {congestion_level} | Profit: {output['profit']} | Unserved rate: {pax_leave_number / total_pax_number}")
 
-with open(args.output_path + f'level_{congestion_level}_veh_{fleet_size}_wait_{maximum_wait}.pickle', 'wb') as handle:
+with open(args.output_path + f'veh_{fleet_size}_bg_{congestion_level}_homo.pickle', 'wb') as handle:
     pickle.dump(output, handle)

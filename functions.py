@@ -21,11 +21,16 @@ def initialize_demand(network):
 
     random.seed(2023)
 
-    for i in range(network.demand_data.shape[0]):
-        request_time = datetime.strptime(network.demand_data.loc[i,"pu_time"], "%Y-%m-%d %H:%M:%S")
+    day_data = network.demand_data[
+        (network.demand_data["pu_month"] == 6)
+        & (network.demand_data["pu_day"] == network.date)
+    ].reset_index(drop=True)
+
+    for i in range(day_data.shape[0]):
+        request_time = day_data.loc[i, "pu_time"]
         if (request_time >= network.start_timestamp) & (request_time < network.end_timestamp):
-            pickup_zone = network.zone_index_id_dict[int(network.demand_data.loc[i, "pu_zone"])]
-            dropoff_zone = network.zone_index_id_dict[int(network.demand_data.loc[i, "do_zone"])]
+            pickup_zone = network.zone_index_id_dict[int(day_data.loc[i, "pu_zone"])]
+            dropoff_zone = network.zone_index_id_dict[int(day_data.loc[i, "do_zone"])]
             timestep = int((request_time - network.start_timestamp).total_seconds()//network.time_interval_length)
             demand_array[pickup_zone, timestep] += 1
             while True:
@@ -51,7 +56,7 @@ def initialize_vehicle(fleet_size, network):
     vehicle_list = []
     vehicle_id_dict = dict()
     vehicle_ind = 0
-    init_avail_time = datetime(2019,6,network.date,network.start_time[0],0,0)
+    init_avail_time = datetime(2025,6,network.date,network.start_time[0],0,0)
     random.seed(2023)
 
     zone_vehicle_number = int(math.floor(fleet_size / network.n)) # number of vehicles in each zone
@@ -198,7 +203,7 @@ def optimization(r, V1, O1, P, Q, n, K, a, b, d, β, γ):
     model.st(b.astype(int) * y == 0)
 
     model.min((x * d).sum()
-               + 𝛽 * (y * np.transpose(d, [1,0,2])).sum()
+               + β * (y * np.transpose(d, [1,0,2])).sum()
                + γ * T.sum())
     
     model.solve(grb, display=False)
