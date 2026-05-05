@@ -211,3 +211,83 @@ def optimization(r, V1, O1, P, Q, n, K, a, b, d, β, γ):
     x_value = x.get()
 
     return x_value
+
+
+def optimization_gurobi(r, V1, O1, P, Q, n, K, a, b, d, β, γ):
+    """
+    Deterministic rebalancing optimization solved with Gurobi.
+    """
+    m = gb.Model("rebalancing")
+    m.setParam("OutputFlag", 0)
+
+    x = m.addVars(n, n, K, lb=0.0, name="x")
+    y = m.addVars(n, n, K, lb=0.0, name="y")
+    O = m.addVars(n, K, lb=0.0, name="O")
+    V = m.addVars(n, K, lb=0.0, name="V")
+    S = m.addVars(n, K, lb=0.0, name="S")
+    T = m.addVars(n, K, lb=0.0, name="T")
+
+    # Initial conditions
+    for i in range(n):
+        m.addConstr(V[i, 0] == V1[i])
+        m.addConstr(O[i, 0] == O1[i])
+
+    # State transitions
+    for i in range(n):
+        for k in range(K):
+            m.addConstr(S[i, k] == V[i, k] + gb.quicksum(x[j, i, k] for j in range(n)) - gb.quicksum(x[i, j, k] for j in range(n)))
+
+    for k in range(K - 1):
+        for i in range(n):
+            m.addConstr(
+                V[i, k + 1]
+                == S[i, k]
+                - gb.quicksum(y[j, i, k] for j in range(n))
+                + gb.quicksum(Q[j, i, k] * O[j, k] for j in range(n))
+            )
+            m.addConstr(
+                O[i, k + 1]
+                == gb.quicksum(y[j, i, k] for j in range(n))
+                + gb.quicksum(P[j, i, k] * O[j, k] for j in range(n))
+            )
+
+    # Capacity and feasibility
+    for i in range(n):
+        for k in range(K):
+            m.addConstr(gb.quicksum(x[i, j, k] for j in range(n)) <= V[i, k])
+
+    # Rebalancing constraints
+    for i in range(n):
+        for j in range(n):
+            for k in range(K):
+                if a[i, j, k]:
+                    m.addConstr(x[i, j, k] == 0)
+
+    # Matching constraints and surplus
+    for i in range(n):
+        for k in range(K):
+            m.addConstr(gb.quicksum(y[j, i, k] for j in range(n)) <= S[i, k])
+            m.addConstr(gb.quicksum(y[j, i, k] for j in range(n)) <= r[i, k])
+            m.addConstr(T[i, k] == r[i, k] - gb.quicksum(y[i, j, k] for j in range(n)))
+
+    for i in range(n):
+        for j in range(n):
+            for k in range(K):
+                if b[i, j, k]:
+                    m.addConstr(y[i, j, k] == 0)
+
+    # Objective
+    obj_reb = gb.quicksum(x[i, j, k] * d[i, j, k] for i in range(n) for j in range(n) for k in range(K))
+    obj_match = gb.quicksum(y[i, j, k] * d[j, i, k] for i in range(n) for j in range(n) for k in range(K))
+    obj_surplus = gb.quicksum(T[i, k] for i in range(n) for k in range(K))
+    m.setObjective(obj_reb + β * obj_match + γ * obj_surplus, gb.GRB.MINIMIZE)
+
+    m.optimize()
+
+    x_value = np.zeros((n, n, K))
+    for i in range(n):
+        for j in range(n):
+            for k in range(K):
+                x_value[i, j, k] = x[i, j, k].X
+
+    return x_value

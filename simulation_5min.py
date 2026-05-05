@@ -2,7 +2,7 @@ import random, math, pickle
 import argparse, logging
 import numpy as np
 from structures import Network
-from functions import initialize_demand, initialize_vehicle, matching, optimization
+from functions import initialize_demand, initialize_vehicle, matching, optimization_gurobi
 from collections import defaultdict
 from datetime import datetime, timedelta
 
@@ -152,8 +152,8 @@ print("Intializing passengers and vehicles ...")
 demand_list, demand_array, demand_id_dict = initialize_demand(net)
 vehicle_list, vehicle_id_dict = initialize_vehicle(fleet_size, net)
 
-simulation_start_time = datetime(2019,6,net.date,net.start_time[0],0,0)
-simulation_end_time = datetime(2019,6,net.date,net.end_time[0],0,0)
+simulation_start_time = datetime(2025,6,net.date,net.start_time[0],0,0)
+simulation_end_time = datetime(2025,6,net.date,net.end_time[0],0,0)
 simulation_time = simulation_start_time
 # logging.info("Intializing finish. Simulation starts.")
 print("Intializing finish. Simulation starts.")
@@ -193,7 +193,7 @@ while True:
         d_sub = net.d[:,:,time_index:end_time_index] # zone centroids distance 
 
         r = net.true_demand[:, time_index:end_time_index]
-        rebalancing_decision = optimization(r, V_init, O_init, P_matrix, Q_matrix, net.n, K_sub, a_sub, b_sub, d_sub, net.β, net.γ)
+        rebalancing_decision = optimization_gurobi(r, V_init, O_init, P_matrix, Q_matrix, net.n, K_sub, a_sub, b_sub, d_sub, net.β, net.γ)
 
         rebalancing_decision = (np.floor(rebalancing_decision[:,:,0])).astype(int)
 

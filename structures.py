@@ -163,7 +163,7 @@ class Network:
         self.true_demand = June_date_data.loc[:, ['zone','bin','demand']].pivot(index='zone',columns='bin',values='demand').values
             
         # Demand information used for simulation (multi-day)
-        self.demand_data = pd.read_csv("data/NYC/demand/fhvhv_records_2025_06.csv")
+        self.demand_data = pd.read_csv("data/NYC/demand/fhv_records_2025_06.csv")
         self.demand_data["pu_time"] = pd.to_datetime(self.demand_data["pu_time"])
         self.demand_data["pu_month"] = self.demand_data["pu_time"].dt.month
         self.demand_data["pu_day"] = self.demand_data["pu_time"].dt.day
